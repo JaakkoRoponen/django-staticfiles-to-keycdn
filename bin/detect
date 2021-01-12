@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "Staticfiles to keycdn"
+exit 0

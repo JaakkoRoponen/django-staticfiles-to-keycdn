@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# stop the execution of the script on error
+set -e
+
+indent() {
+  sed -u 's/^/       /'
+}
+
+BUILD_DIR=$1
+ENV_DIR=$3
+
+# load environment variables
+KEYCDN_USER=$(cat $ENV_DIR/KEYCDN_USER)
+KEYCDN_ZONE=$(cat $ENV_DIR/KEYCDN_ZONE)
+
+if [ -z "$KEYCDN_USER" || -z "$KEYCDN_ZONE" ]; then
+    echo "Did you forget to set KEYCDN_USER and KEYCDN_ZONE?" | indent
+    exit 1
+fi
+
+# add ssh private key into the SSH authentication agent for single sign-on with SSH
+eval `ssh-agent -s` > /dev/null
+ssh-add 2> /dev/null
+
+# edit config to skip host key checking for keycdn
+echo "Host rsync.keycdn.com" >> ~/.ssh/config
+echo "   StrictHostKeyChecking no" >> ~/.ssh/config      # turn off host key checking
+echo "   UserKnownHostsFile /dev/null" >> ~/.ssh/config  # do not use known_hosts file
+echo "   LogLevel ERROR" >> ~/.ssh/config                # log only errors
+
+# rsync staticfiles to keycdn (sed '0,/^$/d' -> print only summary, which is separated by empty line)
+echo "Sending staticfiles to keycdn..." | indent
+rsync -rtvz --chmod=D2755,F644 "$BUILD_DIR/staticfiles/" "$KEYCDN_USER@rsync.keycdn.com:$KEYCDN_ZONE/" | sed '0,/^$/d' | indent
+
+# remove staticfiles from the build to minimize the build size
+rm -rf "$BUILD_DIR/staticfiles"
+
+# remove static folders and their contents from the build to minimize the build size
+# keeps static files of python packages (which are in hidden folders)
+find "$BUILD_DIR" -not -path '*/\.*' -type d -name static -prune -exec rm -rf {} \;
+
+echo "Staticfiles and static folders removed from the build" | indent
