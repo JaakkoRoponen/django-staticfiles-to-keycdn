@@ -14,7 +14,7 @@ ENV_DIR=$3
 KEYCDN_USER=$(cat $ENV_DIR/KEYCDN_USER)
 KEYCDN_ZONE=$(cat $ENV_DIR/KEYCDN_ZONE)
 
-if [ -z "$KEYCDN_USER" || -z "$KEYCDN_ZONE" ]; then
+if [ -z "$KEYCDN_USER" ] || [ -z "$KEYCDN_ZONE" ]; then
     echo "Did you forget to set KEYCDN_USER and KEYCDN_ZONE?" | indent
     exit 1
 fi
@@ -33,8 +33,8 @@ echo "   LogLevel ERROR" >> ~/.ssh/config                # log only errors
 echo "Sending staticfiles to keycdn..." | indent
 rsync -rtvz --chmod=D2755,F644 "$BUILD_DIR/staticfiles/" "$KEYCDN_USER@rsync.keycdn.com:$KEYCDN_ZONE/" | sed '0,/^$/d' | indent
 
-# remove staticfiles from the build to minimize the build size
-rm -rf "$BUILD_DIR/staticfiles"
+# remove staticfiles (except staticfiles.json) from the build to minimize the build size
+find "$BUILD_DIR/staticfiles/" -mindepth 1 -type d -prune -exec rm -rf {} \;
 
 # remove static folders and their contents from the build to minimize the build size
 # keeps static files of python packages (which are in hidden folders)
